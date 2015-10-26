@@ -42,9 +42,9 @@
       "runtime"
     ]
   },
-  "respository": {
+  "repository": {
     "type": "git",
-    "url": "https://github.com/thibremy/fortune-redis"
+    "url": "git+https://github.com/thibremy/fortune-redis.git"
   },
   "keywords": [
     "fortune",
