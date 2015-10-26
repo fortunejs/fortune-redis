@@ -34,7 +34,7 @@ Below is a sample code to use fortune-redis with [fakeRedis](https://github.com/
 ```js
 import fortune from 'fortune'
 import redisAdapter from 'fortune-redis'
-import fakeRedis from 'fakeredis',
+import redis from 'fakeredis',
 
 const store = fortune.create({
   adapter: { type: redisAdapter }
