@@ -7,7 +7,7 @@ This is a [Redis](https://http://redis.io) adapter for [Fortune](http://fortunej
 
 Install the `fortune-redis` package from `npm`:
 
-```git a
+```git 
 $ npm install fortune-redis
 ```
 
