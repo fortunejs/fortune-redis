@@ -8,7 +8,7 @@ This is a [Redis](https://http://redis.io) adapter for [Fortune](http://fortunej
 Install the `fortune-redis` package from `npm`:
 
 ```
-$ npm install fortune-nedb
+$ npm install fortune-redis
 ```
 
 Then use it with Fortune:
