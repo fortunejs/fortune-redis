@@ -30,7 +30,6 @@
     "fortune": "^1.4.17",
     "mkdirp": "^0.5.1",
     "rimraf": "^2.4.3",
-    "supertest": "^1.1.0",
     "tap-dot": "^1.0.0",
     "tapdance": "^4.0.1"
   },

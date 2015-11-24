@@ -15,21 +15,21 @@ const test = httpTest.bind(null, {
 });
 
 run(() => {
-  comment('root list')
+  comment('root list');
   return test('/', null, response => {
     ok(response.status === 200, 'status is correct');
   });
 });
 
 run(() => {
-  comment('list users')
+  comment('list users');
   return test('/user', null, response => {
     ok(response.status === 200, 'status is correct');
   });
 });
 
 run(() => {
-  comment('list animal')
+  comment('list animal');
   return test('/animal', null, response => {
     ok(response.status === 200, 'status is correct');
   });
