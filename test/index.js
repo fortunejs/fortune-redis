@@ -5,6 +5,7 @@ var redis = require('fakeredis');
 
 testAdapter(adapter, {
   createClientFactory() {
+  	console.log('createClientFactory');
     return redis.createClient();
   },
 });
