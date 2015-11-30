@@ -1,7 +1,7 @@
 import { comment, run, ok } from 'tapdance';
 import fredis from 'fakeredis';
 import httpTest from 'fortune/test/integration/http_test';
-import RedisAdapter from '../../lib';
+import RedisAdapter from '../../src';
 
 const test = httpTest.bind(null, {
   adapter: {

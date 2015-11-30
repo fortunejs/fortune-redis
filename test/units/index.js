@@ -1,5 +1,5 @@
 import testAdapter from 'fortune/test/adapter';
-import RedisAdapter from '../../lib';
+import RedisAdapter from '../../src';
 import fredis from 'fakeredis';
 
 testAdapter(RedisAdapter, {
