@@ -35,7 +35,6 @@
     "tapdance": "^4.0.1"
   },
   "files": [
-    "src/",
     "lib/",
     "LICENSE"
   ],
