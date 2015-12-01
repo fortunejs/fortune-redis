@@ -1,11 +1,15 @@
 export function isFalsy(item) {
-  return [undefined, false, {}, null].includes(item);
+  return [undefined, false, {}, null].indexOf(item) !== -1;
 }
 
 export function compact(item) {
   return !isFalsy(item);
 }
 
+/**
+*  @params object value
+*  value represent JSON.stringify(attr) extract from redis.
+*/
 const specialTypes = new WeakMap([
   [Buffer, (value) => new Buffer(value.data)],
   [Date, (value) => new Date(value)],
@@ -41,6 +45,10 @@ export function createTransformerByType(adapter, fields) {
   };
 }
 
+/*
+* Create a function which decode specific type from Redis value
+* because format like Date or Buffer can't be just a String.
+*/
 export function createTransformers(adapter, recordTypes) {
   const transformers = Object.keys(recordTypes).reduce((dest, type) => {
     dest[type] = createTransformerByType(adapter, recordTypes[type]);
