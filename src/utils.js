@@ -32,7 +32,7 @@ export function createTransformerByType(adapter, fields) {
     }, {});
 
   return (record) => {
-    Object.keys(decoder).forEach(key => {
+    Object.keys(decoder).forEach((key) => {
       const handler = decoder[key];
       const recordValue = record[key];
 

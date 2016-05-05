@@ -37,19 +37,19 @@ export default function(Adapter) {
     const fields = recordTypes[type];
     const transformer = this.transformers[type];
 
-    const findRecords = collectionIds => {
-      const getRecord = id => {
+    const findRecords = (collectionIds) => {
+      const getRecord = (id) => {
         return this.db.get(`${type}:${id}`)
-          .then(record => JSON.parse(record));
+          .then((record) => JSON.parse(record));
       };
 
       const fc = collectionIds.map(getRecord);
 
       return Promise.all(fc)
-        .then(records => records.filter(utils.compact))
-        .then(records => records.map(transformer))
-        .then(records => records.map(record => outputRecord.call(this, type, record)))
-        .then(records => applyOptions(records.length, fields, records, options));
+        .then((records) => records.filter(utils.compact))
+        .then((records) => records.map(transformer))
+        .then((records) => records.map((record) => outputRecord.call(this, type, record)))
+        .then((records) => applyOptions(records.length, fields, records, options));
     };
 
     return ids ?
@@ -66,8 +66,8 @@ export default function(Adapter) {
       },
     } = this;
 
-    const saveInRedis = records => {
-      const fc = records.map(record => {
+    const saveInRedis = (records) => {
+      const fc = records.map((record) => {
         const id = record[primaryKey];
         return this.db.multi()
           .sadd(`${type}`, id)
@@ -90,7 +90,7 @@ export default function(Adapter) {
         .then(checkCount);
 
       return Promise.all(
-        inputRecords.filter(record => utils.compact(record.id))
+        inputRecords.filter((record) => utils.compact(record.id))
         .map(findDuplicate)
       );
     };
@@ -130,28 +130,28 @@ export default function(Adapter) {
         .then(() => this.db.get(`${type}:${id}`))
         .then(decodeRecord)
         .then(applyUpdateOnRecord)
-        .then(record => this.db.set(`${type}:${id}`, JSON.stringify(record)))
+        .then((record) => this.db.set(`${type}:${id}`, JSON.stringify(record)))
         .catch(() => undefined);
     };
 
     const updateInRedis = (updates) => {
       const fc = updates
-        .filter(updateRequest => utils.compact(updateRequest.id))
+        .filter((updateRequest) => utils.compact(updateRequest.id))
         .map(updateRecord);
 
       return Promise.all(fc)
-        .then(updated => updated.filter(utils.compact));
+        .then((updated) => updated.filter(utils.compact));
     };
 
     return updateInRedis(updatesArg)
-      .then(records => records.length);
+      .then((records) => records.length);
   };
 
   RedisAdapter.prototype.delete = function(type, ids) {
     if (ids && !ids.length) {
       return Adapter.prototype.delete.call(this);
     }
-    const deleteInRedis = collectionIds => {
+    const deleteInRedis = (collectionIds) => {
       const fc = collectionIds.map(id =>
         this.db.multi()
         .srem(`${type}`, id)
@@ -159,14 +159,14 @@ export default function(Adapter) {
         .exec()
         .then(res => res[0] === 1 ? id : undefined)
       );
-      return Promise.all(fc).then(deletedIds => deletedIds.filter(utils.compact));
+      return Promise.all(fc).then((deletedIds) => deletedIds.filter(utils.compact));
     };
 
     const idsToDelete = ids ? Promise.resolve(ids) : this.db.smembers(type);
 
     return idsToDelete
       .then(deleteInRedis)
-      .then(records => records.length);
+      .then((records) => records.length);
   };
 
   return RedisAdapter;
