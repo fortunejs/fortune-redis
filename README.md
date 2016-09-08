@@ -3,7 +3,7 @@
 # Fortune Redis Adapter
 
 This is a [Redis](https://http://redis.io) adapter for [Fortune](http://fortunejs.com).
-This package now use [ioredis](https://github.com/luin/ioredis) insted of [node_redis](https://github.com/NodeRedis/node_redis)
+This package now use [ioredis](https://github.com/luin/ioredis) instead of [node_redis](https://github.com/NodeRedis/node_redis)
 
 ## Usage
 
