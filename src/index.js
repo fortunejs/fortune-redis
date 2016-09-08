@@ -1,173 +1,194 @@
 /* eslint func-names: 0 */
-import redis from './redis';
-import { inputRecord, outputRecord } from 'fortune/lib/adapter/adapters/memory/helpers';
-import { applyOptions } from 'fortune/lib/adapter/adapters/common';
-import applyUpdate from 'fortune/lib/common/apply_update';
-import * as utils from './utils';
+import configureFactory from './redis'
+import { inputRecord, outputRecord, generateId } from './helpers'
+import { applyOptions } from 'fortune/lib/adapter/adapters/common.js'
+import applyUpdate from 'fortune/lib/common/apply_update'
+
+const adapterOptions = new Set(['generateId'])
+const concatRedisResult = (i) => (results) => [].concat(...results.map((r) => r[i]))
+const concatReplies = concatRedisResult(1)
 
 /**
- * Redis adapter
+ * Redis Adapter
+ * @param AdapterBase
+ * @return {RedisAdapter}
  */
-export default function(Adapter) {
-  function RedisAdapter(properties) {
-    Adapter.call(this, properties);
+export default (Adapter) => class RedisAdapter extends Adapter {
+
+  constructor(...args) {
+    super(...args)
+    if (!this.options) {
+      this.options = {}
+    }
+
+    if (!('recordsPerType' in this.options)) {
+      this.options.recordsPerType = 1000
+    }
+
+    if (!('separator' in this.options)) {
+      this.options.separator = ':'
+    }
+
+    if (!('generateId' in this.options)) {
+      this.options.generateId = generateId
+    }
+
+    this.keys.separator = this.options.separator
   }
 
-  RedisAdapter.prototype = Object.create(Adapter.prototype);
+  connect() {
+    let {options} = this
 
-  RedisAdapter.prototype.connect = function() {
-    this.db = redis.configureFactory(this.options, this).createClient();
-    this.transformers = utils.createTransformers(this, this.recordTypes);
-    return Promise.resolve();
-  };
+    options = options || {}
 
-  RedisAdapter.prototype.disconnect = function() {
-    return this.db.quit();
-  };
+    const parameters = {}
 
-  RedisAdapter.prototype.find = function(type, ids, options) {
+    for (const key in options) {
+      if (!adapterOptions.has(key)) {
+        parameters[key] = options[key]
+      }
+    }
+
+
+    this.redis = configureFactory(parameters).createClient()
+    return this.Promise.resolve()
+  }
+
+  disconnect() {
+    return this.redis.quit()
+  }
+
+  create(type, records) {
+    if (!records.length) {
+      return super.create()
+    }
+    const {redis} = this
+    const primaryKey = this.keys.primary
+    const separator = this.keys.separator
+    const recordsInput = records.map(inputRecord.bind(this, type))
+    const pipeline = redis.pipeline()
+    const {ConflictError} = this.errors
+
+    recordsInput.forEach((r) => pipeline.sismember(type, r[primaryKey]))
+
+    return pipeline.exec()
+      .then(concatReplies)
+      .then((replies) => {
+        if (!replies.every((r) => r === 0)) {
+          return Promise.reject(new ConflictError('duplicate key'))
+        }
+      })
+      .then(() => {
+        const m = redis.multi()
+        recordsInput.forEach((r) => {
+          m.sadd(type, r[primaryKey])
+          m.set(`${type}${separator}${r[primaryKey]}`, JSON.stringify(r))
+        })
+        return m.exec()
+      })
+      .then(() => recordsInput)
+  }
+
+  find(type, ids, options = {}, meta = {}) {
     if (ids && !ids.length) {
-      return Adapter.prototype.find.call(this);
+      return super.find()
     }
 
-    const {
-      recordTypes,
-    } = this;
+    const {redis, recordTypes, keys} = this
+    const separator = keys.separator
 
-    const fields = recordTypes[type];
-    const transformer = this.transformers[type];
-
-    const findRecords = collectionIds => {
-      const getRecord = id => {
-        return this.db.get(`${type}:${id}`)
-          .then(record => JSON.parse(record));
-      };
-
-      const fc = collectionIds.map(getRecord);
-
-      return Promise.all(fc)
-        .then(records => records.filter(utils.compact))
-        .then(records => records.map(transformer))
-        .then(records => records.map(record => outputRecord.call(this, type, record)))
-        .then(records => applyOptions(records.length, fields, records, options));
-    };
-
-    return ids ?
-      findRecords(ids) : this.db.smembers(type).then(findRecords);
-  };
-
-  RedisAdapter.prototype.create = function(type, recordsArg) {
-    const {
-      keys: {
-        primary: primaryKey,
-      },
-      errors: {
-        ConflictError,
-      },
-    } = this;
-
-    const saveInRedis = records => {
-      const fc = records.map(record => {
-        const id = record[primaryKey];
-        return this.db.multi()
-          .sadd(`${type}`, id)
-          .set(`${type}:${id}`, JSON.stringify(record))
-          .exec()
-          .then(() => record);
-      });
-
-      return Promise.all(fc);
-    };
-
-    const inputRecords = recordsArg.map(inputRecord.bind(this, type));
-
-    const duplicates = () => {
-      const checkCount = (count) => {
-        if (count > 0) return Promise.reject(new ConflictError(`Record already exists.`));
-      };
-
-      const findDuplicate = (record) => this.db.sismember(type, record.id)
-        .then(checkCount);
-
-      return Promise.all(
-        inputRecords.filter(record => utils.compact(record.id))
-        .map(findDuplicate)
-      );
-    };
-
-    return duplicates()
-      .then(() => saveInRedis(inputRecords));
-  };
-
-
-  RedisAdapter.prototype.update = function(type, updatesArg) {
-    if (!updatesArg.length) {
-      return Adapter.prototype.update.call(this);
+    if (!ids) {
+      return redis.smembers(type)
+        .then((collectionId) => this.find(type, collectionId, options))
     }
 
-    const {
-      errors: {
-        NotFoundError,
-      },
-    } = this;
+    return redis.mget(ids.map((id) => `${type}${separator}${id}`))
+      .then((replies) => replies.filter((r) => r !== null))
+      .then((entries) => {
+        const fn = outputRecord.bind(this, type)
+        return entries.map((e) => fn(JSON.parse(e)))
+      })
+      .then((entries) => {
+        return applyOptions(recordTypes[type], entries, options, meta)
+      })
+  }
 
-    const decodeRecord = (recordEncoded) => this.transformers[type](JSON.parse(recordEncoded));
+  update(type, updates) {
+    if (!updates.length) {
+      return super.update()
+    }
 
-    const updateRecord = (updateRequest) => {
-      const id = updateRequest.id;
+    const {Promise, redis, keys} = this
+    const primaryKey = keys.primary
+    const separator = keys.separator
 
-      const checkCount = (count) => {
-        if (count === 0) return Promise.reject(new NotFoundError(`Record not set.`));
-      };
+    const updateIds = updates.map((u) => u[primaryKey])
 
-      const applyUpdateOnRecord = (record) => {
-        applyUpdate(record, updateRequest);
-        return record;
-      };
+    const concatIds = (replies) => {
+      return concatReplies(replies)
+        .reduce((a, r, index) => {
+          if (r === 1) {
+            a.push(updates[index])
+          }
+          return a
+        }, [])
+    }
 
-      return this.db.sismember(type, id)
-        .then(checkCount)
-        .then(() => this.db.get(`${type}:${id}`))
-        .then(decodeRecord)
-        .then(applyUpdateOnRecord)
-        .then(record => this.db.set(`${type}:${id}`, JSON.stringify(record)))
-        .catch(() => undefined);
-    };
+    return Promise.resolve(updateIds)
+      .then((ids) => {
+        const pipeline = redis.pipeline()
+        ids.forEach((id) => pipeline.sismember(type, id))
+        return pipeline.exec()
+      })
+      .then(concatIds)
+      .then((validUpdates) => {
+        if (updates.length <= 0) {
+          return validUpdates
+        }
+        const multi = redis.multi()
+        const ids = validUpdates.map((u) => u[primaryKey])
 
-    const updateInRedis = (updates) => {
-      const fc = updates
-        .filter(updateRequest => utils.compact(updateRequest.id))
-        .map(updateRecord);
+        return this.find(type, ids)
+          .then((records) => {
+            records.forEach((record, index) => {
+              const id = record[primaryKey]
+              applyUpdate(record, validUpdates[index])
+              multi.set(`${type}${separator}${id}`, JSON.stringify(record))
+            })
+            return multi.exec()
+          })
+      })
+      .then(concatReplies)
+      .then((replies) => replies.length)
+  }
 
-      return Promise.all(fc)
-        .then(updated => updated.filter(utils.compact));
-    };
-
-    return updateInRedis(updatesArg)
-      .then(records => records.length);
-  };
-
-  RedisAdapter.prototype.delete = function(type, ids) {
+  delete(type, ids) {
     if (ids && !ids.length) {
-      return Adapter.prototype.delete.call(this);
+      return super.delete()
     }
-    const deleteInRedis = collectionIds => {
-      const fc = collectionIds.map(id =>
-        this.db.multi()
-        .srem(`${type}`, id)
-        .del(`${type}:${id}`)
-        .exec()
-        .then(res => res[0] === 1 ? id : undefined)
-      );
-      return Promise.all(fc).then(deletedIds => deletedIds.filter(utils.compact));
-    };
 
-    const idsToDelete = ids ? Promise.resolve(ids) : this.db.smembers(type);
+    const {redis, keys} = this
+    const separator = keys.separator
 
-    return idsToDelete
-      .then(deleteInRedis)
-      .then(records => records.length);
-  };
+    const getIdsToDelete = () => {
+      return ids && ids.length ? Promise.resolve(ids) : redis.smembers(type)
+    }
 
-  return RedisAdapter;
+    return getIdsToDelete()
+      .then((idsFound) => {
+        if (idsFound.length === 0) {
+          return idsFound
+        }
+        const multi = redis.multi()
+        idsFound.forEach((id) => {
+          multi.srem(type, id)
+          multi.del(`${type}${separator}${id}`)
+        })
+        return multi.exec()
+      })
+      .then(concatReplies)
+      .then((res) => {
+        return res.reduce((c, v) => c + v, 0) / 2
+      })
+  }
 }
