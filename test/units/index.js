@@ -3,6 +3,6 @@ import adapter from '../../src'
 
 testAdapter(adapter, {
   generateId() {
-    Math.floor(Math.random() * Math.pow(2, 32)).toString(16)
+    return Math.floor(Math.random() * Math.pow(2, 32)).toString(16)
   },
 })

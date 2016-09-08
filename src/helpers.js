@@ -25,12 +25,16 @@ export const toBuffer = (object) => {
 
 // Cast and assign values per field definition.
 export function inputRecord(type, record) {
-  const { recordTypes, keys, options } = this
+  const { recordTypes, keys, options, errors } = this
   const primaryKey = keys.primary
   const isArrayKey = keys.isArray
   const genId = options.generateId
   const fields = recordTypes[type]
-  const id = record[primaryKey]
+  const id = record[primaryKey] || genId(type, record)
+
+  if (!id) {
+    throw new errors.MethodError('record doesn\'t have an id.')
+  }
 
   return Object.entries(fields).reduce((r, [field, definition]) => {
     if (field === primaryKey) {
@@ -45,7 +49,7 @@ export function inputRecord(type, record) {
     r[field] = record[field]
     return r
   }, {
-    [primaryKey]: id ? id : genId(type),
+    [primaryKey]: id,
   })
 }
 

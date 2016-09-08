@@ -72,9 +72,6 @@ export default (Adapter) => class RedisAdapter extends Adapter {
     recordsInput.forEach((r) => pipeline.sismember(type, r[primaryKey]))
 
     return pipeline.exec()
-      .then((replies) => {
-        return replies
-      })
       .then(concatReplies)
       .then((replies) => {
         if (!replies.every((r) => r === 0)) {
