@@ -36,18 +36,18 @@ export function inputRecord(type, record) {
     throw new errors.MethodError('record doesn\'t have an id.')
   }
 
-  return Object.entries(fields).reduce((r, [field, definition]) => {
+  return Object.entries(fields).reduce((rec, [field, definition]) => {
     if (field === primaryKey) {
-      return r
+      return rec
     }
 
-    if (!record[field]) {
-      r[field] = definition[isArrayKey] ? [] : null
-      return r
+    if (!record.hasOwnProperty(field)) {
+      rec[field] = definition[isArrayKey] ? [] : null
+      return rec
     }
 
-    r[field] = record[field]
-    return r
+    rec[field] = record[field]
+    return rec
   }, {
     [primaryKey]: id,
   })
@@ -61,45 +61,45 @@ export function outputRecord(type, record) {
   const fields = recordTypes[type]
   const denormalizedInverseKey = this.keys.denormalizedInverse
 
-  return Object.entries(fields).reduce((r, [field, definition]) => {
+  return Object.entries(fields).reduce((rec, [field, definition]) => {
     const fieldType = definition[typeKey]
 
     if (record[field] && isBuffer(fieldType)) {
       if (definition[isArrayKey]) {
-        r[field] = record[field].map(toBuffer)
-        return r
+        rec[field] = record[field].map(toBuffer)
+        return rec
       }
 
-      r[field] = toBuffer(record[field]) || null
-      return r
+      rec[field] = toBuffer(record[field]) || null
+      return rec
     }
 
     if (record[field] && fieldType === Date) {
-      r[field] = new Date(record[field])
-      return r
+      rec[field] = new Date(record[field])
+      return rec
     }
 
     if (record[field] && fieldType === Boolean) {
-      r[field] = Boolean(record[field])
-      return r
+      rec[field] = Boolean(record[field])
+      return rec
     }
 
     if (record[field] && fieldType === Number) {
-      r[field] = Number(record[field])
-      return r
+      rec[field] = Number(record[field])
+      return rec
     }
 
     if (definition[denormalizedInverseKey]) {
-      Object.defineProperty(r, field, {
+      Object.defineProperty(rec, field, {
         configurable: true,
         writable: true,
         value: record[field],
       })
-      return r
+      return rec
     }
 
-    r[field] = record[field]
-    return r
+    rec[field] = record[field]
+    return rec
   }, {
     [primaryKey]: record[primaryKey],
   })

@@ -8,13 +8,15 @@ const adapterOptions = new Set(['generateId'])
 const concatRedisResult = (i) => (results) => [].concat(...results.map((r) => r[i]))
 const concatReplies = concatRedisResult(1)
 
+const features = {
+  logicalOperators: true,
+}
 /**
  * Redis Adapter
  * @param AdapterBase
  * @return {RedisAdapter}
  */
 export default (Adapter) => class RedisAdapter extends Adapter {
-
   constructor(...args) {
     super(...args)
     if (!this.options) {
@@ -34,6 +36,7 @@ export default (Adapter) => class RedisAdapter extends Adapter {
     }
 
     this.keys.separator = this.options.separator
+    Object.assign(this, { features })
   }
 
   connect() {
@@ -48,7 +51,6 @@ export default (Adapter) => class RedisAdapter extends Adapter {
         parameters[key] = options[key]
       }
     }
-
 
     this.redis = configureFactory(parameters).createClient()
     return this.Promise.resolve()
@@ -69,22 +71,22 @@ export default (Adapter) => class RedisAdapter extends Adapter {
     const pipeline = redis.pipeline()
     const {ConflictError} = this.errors
 
-    recordsInput.forEach((r) => pipeline.sismember(type, r[primaryKey]))
+    recordsInput.forEach((rec) => pipeline.sismember(type, rec[primaryKey]))
 
     return pipeline.exec()
       .then(concatReplies)
       .then((replies) => {
-        if (!replies.every((r) => r === 0)) {
-          return Promise.reject(new ConflictError('duplicate key'))
+        if (!replies.every((repl) => repl === 0)) {
+          return this.Promise.reject(new ConflictError('duplicate key'))
         }
       })
       .then(() => {
-        const m = redis.multi()
-        recordsInput.forEach((r) => {
-          m.sadd(type, r[primaryKey])
-          m.set(`${type}${separator}${r[primaryKey]}`, JSON.stringify(r))
+        const mlt = redis.multi()
+        recordsInput.forEach((rec) => {
+          mlt.sadd(type, rec[primaryKey])
+          mlt.set(`${type}${separator}${rec[primaryKey]}`, JSON.stringify(rec))
         })
-        return m.exec()
+        return mlt.exec()
       })
       .then(() => recordsInput)
   }
@@ -103,10 +105,10 @@ export default (Adapter) => class RedisAdapter extends Adapter {
     }
 
     return redis.mget(ids.map((id) => `${type}${separator}${id}`))
-      .then((replies) => replies.filter((r) => r !== null))
+      .then((replies) => replies.filter((repl) => repl !== null))
       .then((entries) => {
         const fn = outputRecord.bind(this, type)
-        return entries.map((e) => fn(JSON.parse(e)))
+        return entries.map((entry) => fn(JSON.parse(entry)))
       })
       .then((entries) => {
         return applyOptions(recordTypes[type], entries, options, meta)
@@ -122,15 +124,15 @@ export default (Adapter) => class RedisAdapter extends Adapter {
     const primaryKey = keys.primary
     const separator = keys.separator
 
-    const updateIds = updates.map((u) => u[primaryKey])
+    const updateIds = updates.map((uIds) => uIds[primaryKey])
 
     const concatIds = (replies) => {
       return concatReplies(replies)
-        .reduce((a, r, index) => {
-          if (r === 1) {
-            a.push(updates[index])
+        .reduce((agg, repl, index) => {
+          if (repl === 1) {
+            agg.push(updates[index])
           }
-          return a
+          return agg
         }, [])
     }
 
@@ -146,7 +148,7 @@ export default (Adapter) => class RedisAdapter extends Adapter {
           return validUpdates
         }
         const multi = redis.multi()
-        const ids = validUpdates.map((u) => u[primaryKey])
+        const ids = validUpdates.map((update) => update[primaryKey])
 
         return this.find(type, ids)
           .then((records) => {
@@ -188,7 +190,7 @@ export default (Adapter) => class RedisAdapter extends Adapter {
       })
       .then(concatReplies)
       .then((res) => {
-        return res.reduce((c, v) => c + v, 0) / 2
+        return res.reduce((counter, added) => counter + added, 0) / 2
       })
   }
 }
