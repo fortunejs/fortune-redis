@@ -10,7 +10,7 @@ const concatReplies = concatRedisResult(1)
 
 const features = {
   logicalOperators: true,
-};
+}
 /**
  * Redis Adapter
  * @param AdapterBase
@@ -36,7 +36,7 @@ export default (Adapter) => class RedisAdapter extends Adapter {
     }
 
     this.keys.separator = this.options.separator
-    Object.assign(this, { features });
+    Object.assign(this, { features })
   }
 
   connect() {

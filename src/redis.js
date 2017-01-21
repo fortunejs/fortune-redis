@@ -14,7 +14,7 @@ export const createClientFactory = (options = {}) => {
   options.options = Object.assign({}, {
     dropBufferSupport: true,
     connectTimeout: 1000,
-  }, options.options);
+  }, options.options)
 
   if (url) {
     return new Redis(url, options.options)
