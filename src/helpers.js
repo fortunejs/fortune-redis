@@ -41,7 +41,7 @@ export function inputRecord(type, record) {
       return rec
     }
 
-    if (!record[field]) {
+    if (!record.hasOwnProperty(field)) {
       rec[field] = definition[isArrayKey] ? [] : null
       return rec
     }

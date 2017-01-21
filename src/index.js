@@ -8,13 +8,15 @@ const adapterOptions = new Set(['generateId'])
 const concatRedisResult = (i) => (results) => [].concat(...results.map((r) => r[i]))
 const concatReplies = concatRedisResult(1)
 
+const features = {
+  logicalOperators: true,
+};
 /**
  * Redis Adapter
  * @param AdapterBase
  * @return {RedisAdapter}
  */
 export default (Adapter) => class RedisAdapter extends Adapter {
-
   constructor(...args) {
     super(...args)
     if (!this.options) {
@@ -34,6 +36,7 @@ export default (Adapter) => class RedisAdapter extends Adapter {
     }
 
     this.keys.separator = this.options.separator
+    Object.assign(this, { features });
   }
 
   connect() {
@@ -48,7 +51,6 @@ export default (Adapter) => class RedisAdapter extends Adapter {
         parameters[key] = options[key]
       }
     }
-
 
     this.redis = configureFactory(parameters).createClient()
     return this.Promise.resolve()
@@ -75,7 +77,7 @@ export default (Adapter) => class RedisAdapter extends Adapter {
       .then(concatReplies)
       .then((replies) => {
         if (!replies.every((repl) => repl === 0)) {
-          return Promise.reject(new ConflictError('duplicate key'))
+          return this.Promise.reject(new ConflictError('duplicate key'))
         }
       })
       .then(() => {

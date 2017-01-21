@@ -10,8 +10,11 @@ export const createClientFactory = (options = {}) => {
   const { socket, url } = options
   const port = !socket ? (options.port || 6379) : null
   const host = !socket ? (options.host || '127.0.0.1') : null
-  options.options = options.options || {}
-  options.options.dropBufferSupport = true
+
+  options.options = Object.assign({}, {
+    dropBufferSupport: true,
+    connectTimeout: 1000,
+  }, options.options);
 
   if (url) {
     return new Redis(url, options.options)
